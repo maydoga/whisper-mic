@@ -1,0 +1,28 @@
+# Swift / SwiftPM
+.build/
+.swiftpm/
+Package.resolved
+*.xcodeproj
+DerivedData/
+
+# Build output
+build/
+*.app/
+
+# macOS
+.DS_Store
+._*
+.AppleDouble
+.LSOverride
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*~
+
+# Secrets (belt-and-braces — no secrets should live in this repo)
+.env
+.env.*
+*.pem
+*.p12
