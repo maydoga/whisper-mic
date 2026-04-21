@@ -65,6 +65,9 @@ enum TranscriptionService {
         if language != "auto" {
             appendField("language", language)
         }
+        if let prompt = transcriptionPrompt(for: language) {
+            appendField("prompt", prompt)
+        }
 
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
         body.append(
@@ -106,5 +109,20 @@ enum TranscriptionService {
         try? FileManager.default.removeItem(at: fileURL)
 
         return result.text
+    }
+
+    // Anchors gpt-4o-transcribe so it doesn't treat pauses between sentences
+    // as end-of-input and stop generating. Must match the transcription
+    // language; for "auto" we return nil to avoid biasing language detection.
+    private static func transcriptionPrompt(for language: String) -> String? {
+        switch language {
+        case "nl": return "Dit is een dictaat. Transcribeer de volledige opname van begin tot einde, inclusief alle zinnen en pauzes."
+        case "en": return "This is a dictation. Transcribe the complete audio from start to end, including every sentence and pause."
+        case "de": return "Dies ist ein Diktat. Transkribiere die gesamte Aufnahme von Anfang bis Ende, einschließlich aller Sätze und Pausen."
+        case "fr": return "Ceci est une dictée. Transcrivez l'enregistrement complet du début à la fin, y compris toutes les phrases et pauses."
+        case "es": return "Esto es un dictado. Transcribe la grabación completa de principio a fin, incluyendo todas las frases y pausas."
+        case "tr": return "Bu bir dikte. Tüm kaydı baştan sona, tüm cümleler ve duraklamalar dahil eksiksiz yazıya dök."
+        default: return nil
+        }
     }
 }
