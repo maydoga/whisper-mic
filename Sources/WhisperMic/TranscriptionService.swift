@@ -3,6 +3,7 @@ import Foundation
 enum TranscriptionError: Error, LocalizedError {
     case noAPIKey
     case fileReadError
+    case audioTooLarge(Int)
     case networkError(String)
     case apiError(String)
     case timeout
@@ -11,11 +12,50 @@ enum TranscriptionError: Error, LocalizedError {
         switch self {
         case .noAPIKey: return "No API key. Add via: security add-generic-password -a claude-mcp -s OPENAI_API_KEY -w KEY"
         case .fileReadError: return "Could not read audio file"
+        case .audioTooLarge(let mb): return "Recording too large (\(mb)MB). Max is 25MB (~13 min)."
         case .networkError(let msg): return "Network: \(msg)"
         case .apiError(let msg): return "API: \(msg)"
         case .timeout: return "Request timed out. Check your internet connection."
         }
     }
+
+    /// Whether keeping the audio around is worth anything. A file that can't be
+    /// read or is over the size cap will fail identically on every retry.
+    var isRetryable: Bool {
+        switch self {
+        case .fileReadError, .audioTooLarge: return false
+        case .noAPIKey, .networkError, .apiError, .timeout: return true
+        }
+    }
+}
+
+enum TranscriptionModel: String, CaseIterable {
+    /// OpenAI's recommended transcription model since July 2026. Cheaper than
+    /// gpt-4o-transcribe and without its documented habit of cutting the
+    /// transcript short after a pause in speech.
+    case gptTranscribe = "gpt-transcribe"
+    case gpt4oTranscribe = "gpt-4o-transcribe"
+    /// Slower and weaker on proper nouns, but the most resilient against
+    /// dropped sentences — the fallback when a transcript comes back short.
+    case whisper1 = "whisper-1"
+
+    static let `default` = TranscriptionModel.gptTranscribe
+
+    var displayName: String {
+        switch self {
+        case .gptTranscribe: return "gpt-transcribe (recommended)"
+        case .gpt4oTranscribe: return "gpt-4o-transcribe (legacy)"
+        case .whisper1: return "whisper-1 (most complete)"
+        }
+    }
+
+    /// gpt-transcribe replaced the singular `language` field with `languages[]`
+    /// and rejects any request that sends both.
+    var usesLanguagesArray: Bool { self == .gptTranscribe }
+
+    /// whisper-1 treats `prompt` as preceding transcript text to continue from,
+    /// not as an instruction, so an instruction there only biases the output.
+    var acceptsInstructionPrompt: Bool { self != .whisper1 }
 }
 
 struct TranscriptionResponse: Decodable {
@@ -31,7 +71,15 @@ struct APIErrorDetail: Decodable {
 }
 
 enum TranscriptionService {
-    static func transcribe(fileURL: URL, language: String) async throws -> String {
+    /// Anti-truncation anchor. gpt-4o-class transcription models otherwise treat a
+    /// pause between sentences as end-of-input, or condense several sentences into
+    /// one. English is safe for every language: the model reports the spoken
+    /// language from the audio, not from the prompt.
+    private static let verbatimPrompt =
+        "Dictation. Transcribe every spoken word verbatim, from the first word to the last. "
+        + "Do not omit, summarize, shorten or clean up anything. Silence and pauses are not the end of the recording."
+
+    static func transcribe(fileURL: URL, language: String, model: TranscriptionModel) async throws -> String {
         guard let apiKey = KeychainHelper.getOpenAIKey() else {
             throw TranscriptionError.noAPIKey
         }
@@ -42,8 +90,7 @@ enum TranscriptionService {
         // OpenAI API limit is 25MB
         let maxSize = 25 * 1024 * 1024
         if audioData.count > maxSize {
-            try? FileManager.default.removeItem(at: fileURL)
-            throw TranscriptionError.apiError("Recording too large (\(audioData.count / 1_048_576)MB). Max is 25MB (~13 min).")
+            throw TranscriptionError.audioTooLarge(audioData.count / 1_048_576)
         }
 
         let boundary = UUID().uuidString
@@ -61,13 +108,14 @@ enum TranscriptionService {
             body.append("\(value)\r\n".data(using: .utf8)!)
         }
 
-        appendField("model", "gpt-4o-transcribe")
+        appendField("model", model.rawValue)
         if language != "auto" {
-            appendField("language", language)
+            appendField(model.usesLanguagesArray ? "languages[]" : "language", language)
         }
-        if let prompt = transcriptionPrompt(for: language) {
-            appendField("prompt", prompt)
+        if model.acceptsInstructionPrompt {
+            appendField("prompt", verbatimPrompt)
         }
+        appendField("temperature", "0")
 
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
         body.append(
@@ -105,24 +153,7 @@ enum TranscriptionService {
             throw TranscriptionError.apiError("Invalid response from API")
         }
 
-        // Clean up temp file
-        try? FileManager.default.removeItem(at: fileURL)
-
+        // The caller owns the audio file — it is only removed once this returned.
         return result.text
-    }
-
-    // Anchors gpt-4o-transcribe so it doesn't treat pauses between sentences
-    // as end-of-input and stop generating. Must match the transcription
-    // language; for "auto" we return nil to avoid biasing language detection.
-    private static func transcriptionPrompt(for language: String) -> String? {
-        switch language {
-        case "nl": return "Dit is een dictaat. Transcribeer de volledige opname van begin tot einde, inclusief alle zinnen en pauzes."
-        case "en": return "This is a dictation. Transcribe the complete audio from start to end, including every sentence and pause."
-        case "de": return "Dies ist ein Diktat. Transkribiere die gesamte Aufnahme von Anfang bis Ende, einschließlich aller Sätze und Pausen."
-        case "fr": return "Ceci est une dictée. Transcrivez l'enregistrement complet du début à la fin, y compris toutes les phrases et pauses."
-        case "es": return "Esto es un dictado. Transcribe la grabación completa de principio a fin, incluyendo todas las frases y pausas."
-        case "tr": return "Bu bir dikte. Tüm kaydı baştan sona, tüm cümleler ve duraklamalar dahil eksiksiz yazıya dök."
-        default: return nil
-        }
     }
 }

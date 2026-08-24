@@ -15,7 +15,9 @@ echo "==> Building $APP_NAME..."
 
 echo ""
 echo "==> Code signing..."
-# Stable --identifier keeps TCC (Accessibility) grants valid across rebuilds.
+# Ad-hoc signing keys the Accessibility grant to the binary's cdhash, which changes
+# on every rebuild. The stable --identifier is not enough: after installing you have
+# to remove WhisperMic from System Settings > Accessibility and add it back.
 codesign --force --deep --sign - --identifier "$BUNDLE_ID" "$APP_BUNDLE"
 
 echo ""
@@ -33,5 +35,7 @@ open "$INSTALL_DIR/$APP_NAME.app"
 echo ""
 echo "Done! $APP_NAME is running in your menu bar."
 echo ""
-echo "IMPORTANT: Add WhisperMic in System Settings > Privacy & Security > Privacy > Accessibility"
+echo "IMPORTANT: the Accessibility grant does not survive a rebuild. If the menu bar icon"
+echo "shows a crossed-out mic, open System Settings > Privacy & Security > Accessibility,"
+echo "remove WhisperMic with the - button and add it back with + from /Applications."
 echo "Shortcut: ⌃+⌥+⌘+Space"

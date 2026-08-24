@@ -23,9 +23,10 @@ final class AudioRecorder {
     private var timer: Timer?
     private var recordingURL: URL?
 
-    func startRecording() throws {
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("whispermic_\(UUID().uuidString).wav")
+    /// `language` is baked into the filename so a retry days later still uses
+    /// the language that was selected when you spoke.
+    func startRecording(language: String) throws {
+        let url = RecordingStore.newRecordingURL(language: language)
         recordingURL = url
 
         let settings: [String: Any] = [
@@ -56,7 +57,7 @@ final class AudioRecorder {
         }
     }
 
-    func stopRecording() -> URL? {
+    func stopRecording() -> Recording? {
         timer?.invalidate()
         timer = nil
         audioRecorder?.stop()
@@ -64,15 +65,6 @@ final class AudioRecorder {
         let url = recordingURL
         recordingURL = nil
         audioRecorder = nil
-        return url
-    }
-
-    /// Remove any leftover temp files from previous recordings
-    static func cleanupTempFiles() {
-        let tmp = FileManager.default.temporaryDirectory
-        guard let files = try? FileManager.default.contentsOfDirectory(at: tmp, includingPropertiesForKeys: nil) else { return }
-        for file in files where file.lastPathComponent.hasPrefix("whispermic_") {
-            try? FileManager.default.removeItem(at: file)
-        }
+        return url.flatMap(Recording.init(url:))
     }
 }
