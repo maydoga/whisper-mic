@@ -1,6 +1,6 @@
 import Foundation
 
-/// Filename stamp: `whispermic_2026-08-24_09-30-12_nl.wav`.
+/// Filename stamp: `hulpje_2026-08-24_09-30-12_nl.wav`.
 /// Everything the store needs lives in the name, so there is no sidecar
 /// metadata to keep in sync and a half-written state can't confuse it.
 private let stampFormatter: DateFormatter = {
@@ -10,7 +10,9 @@ private let stampFormatter: DateFormatter = {
     return f
 }()
 
-private let namePrefix = "whispermic_"
+private let namePrefix = "hulpje_"
+/// Files written when the app was still called WhisperMic. Read, never written.
+private let legacyPrefix = "whispermic_"
 private let doneMarker = ".done"
 
 /// One audio file on disk. `isTranscribed` recordings are the ones that already
@@ -24,7 +26,7 @@ struct Recording {
     init?(url: URL) {
         guard url.pathExtension == "wav" else { return nil }
         var name = url.deletingPathExtension().lastPathComponent
-        guard name.hasPrefix(namePrefix) else { return nil }
+        guard name.hasPrefix(namePrefix) || name.hasPrefix(legacyPrefix) else { return nil }
 
         let done = name.hasSuffix(doneMarker)
         if done { name.removeLast(doneMarker.count) }
@@ -65,7 +67,8 @@ enum RecordingStore {
 
     static let directory: URL = {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let dir = base.appendingPathComponent("WhisperMic/Recordings", isDirectory: true)
+        let dir = base.appendingPathComponent("Hulpje/Recordings", isDirectory: true)
+        migrateWhisperMicDirectory(into: dir, from: base)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }()
@@ -116,8 +119,21 @@ enum RecordingStore {
     static func cleanupLegacyTempFiles() {
         let tmp = FileManager.default.temporaryDirectory
         guard let files = try? FileManager.default.contentsOfDirectory(at: tmp, includingPropertiesForKeys: nil) else { return }
-        for file in files where file.lastPathComponent.hasPrefix(namePrefix) {
+        for file in files where file.lastPathComponent.hasPrefix(namePrefix)
+            || file.lastPathComponent.hasPrefix(legacyPrefix) {
             try? FileManager.default.removeItem(at: file)
         }
+    }
+
+    /// The app used to store its audio under `WhisperMic/`. Carried over once, so a
+    /// recording that had not been transcribed yet at rename time is not lost.
+    private static func migrateWhisperMicDirectory(into destination: URL, from base: URL) {
+        let legacy = base.appendingPathComponent("WhisperMic/Recordings", isDirectory: true)
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: legacy.path), !fm.fileExists(atPath: destination.path) else { return }
+        try? fm.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? fm.moveItem(at: legacy, to: destination)
+        try? fm.removeItem(at: base.appendingPathComponent("WhisperMic", isDirectory: true))
+        NSLog("[Hulpje] migrated recordings from WhisperMic")
     }
 }

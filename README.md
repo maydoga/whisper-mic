@@ -1,19 +1,22 @@
-# WhisperMic
+# Hulpje
 
-A tiny macOS menubar dictation app. Hold a hotkey, speak, and your words get transcribed by OpenAI and pasted at the cursor — anywhere you can type.
+A small macOS menu bar app that collects the conveniences worth having. It started as
+a dictation tool; it is now a place to keep adding things.
 
-- **Hotkey**: `⌃ + ⌥ + ⌘ + Space` to start/stop recording
-- **Paste-at-cursor**: transcript lands directly in whatever app you were using
-- **Language**: auto-detect, or pick one (NL / EN / DE / FR / ES / TR)
-- **Model**: OpenAI `gpt-transcribe`, switchable to `gpt-4o-transcribe` or `whisper-1`
-- **Nothing gets lost**: audio is kept on disk until a transcript comes back, retry with `⌘R`
-- Lives in the menu bar, no dock icon
+| Feature | What it does | Shortcuts |
+| --- | --- | --- |
+| **Dictation** | Hold a hotkey, speak, get the transcript pasted at the cursor | `⌃⌥⌘Space` |
+| **Windows** | Tile the focused window, a drop-in for the retired Spectacle | `⌘⌥←` `⌘⌥→` `⌘⌥↑` `⌘⌥↓` `⌘⌥F` `⌘⌥C` `⌘⌥Z` |
+| **Menu Bar** | Collapse the third-party menu bar icons, like Ice or Dozer | click the chevron |
+
+Every feature can be switched off from the menu, so it can live alongside the app it
+replaces while you decide.
 
 ## Requirements
 
 - macOS 14+
 - Xcode command line tools (`xcode-select --install`)
-- An OpenAI API key
+- An OpenAI API key (dictation only)
 
 ## Setup
 
@@ -29,73 +32,86 @@ security add-generic-password -a claude-mcp -s OPENAI_API_KEY -w sk-your-key-her
 
 ## Grant Accessibility permission
 
-Paste-at-cursor requires Accessibility access. On first launch macOS will prompt, or open:
+Everything except plain recording needs Accessibility: pasting at the cursor, moving
+other apps' windows, watching the pointer for menu bar auto-hide. On first launch macOS
+prompts, or open:
 
-**System Settings → Privacy & Security → Accessibility → add WhisperMic**
+**System Settings → Privacy & Security → Accessibility → add Hulpje**
 
-Without this, the transcript is still copied to the clipboard, you'll just have to paste it manually.
-
-The grant does not survive a rebuild. WhisperMic is ad-hoc signed, and macOS ties the
+The grant does not survive a rebuild. Hulpje is ad-hoc signed, and macOS ties the
 Accessibility approval to the binary's cdhash, which changes every time you run
 `install.sh`. The checkbox keeps looking enabled while the app is in fact denied, and
-toggling it off and on does not help. Remove WhisperMic from the list with the `-` button
+toggling it off and on does not help. Remove Hulpje from the list with the `-` button
 and add it back with `+` from `/Applications`. The menu bar icon tells you which state
 you're in: a crossed-out mic means no access.
 
-## How it works
+## Dictation
 
-1. Hotkey toggles recording (`AudioRecorder` → 16kHz mono WAV in `~/Library/Application Support/WhisperMic/Recordings`)
+1. The hotkey toggles recording (`AudioRecorder` → 16kHz mono WAV in `~/Library/Application Support/Hulpje/Recordings`)
 2. Recording keeps running 0.4s past the hotkey, so the last syllable isn't clipped
 3. The WAV is POSTed to OpenAI's `/v1/audio/transcriptions` endpoint
 4. The returned text is copied to the clipboard
-5. WhisperMic re-activates the previously frontmost app and simulates `⌘V`
+5. Hulpje re-activates the previously frontmost app and simulates `⌘V`
 
-The API key is read from the Keychain at launch. It never lives in the binary, on disk as plaintext, or in this repo.
+The API key is read from the Keychain at launch. It never lives in the binary, on disk
+as plaintext, or in this repo.
 
-## Retrying a recording
+**Retrying.** The audio file is only marked done once a transcript actually comes back.
+No internet, an API error, an empty result: the WAV stays on disk and the menu offers
+**Retry Last Recording** (`⌘R`), plus a **Failed Recordings** submenu when more than one
+is waiting. Up to 10 failed recordings are kept; the oldest drops off.
 
-The audio file is only marked done once a transcript actually comes back. No internet,
-an API error, an empty result: the WAV stays on disk and the menu offers **Retry Last
-Recording** (`⌘R`), plus a **Failed Recordings** submenu when more than one is waiting.
-Up to 10 failed recordings are kept; the oldest drops off.
+## Windows
 
-The most recent *successful* recording is kept too, until the next one replaces it. That
-turns **Retranscribe Last** into the fix for a transcript that came back short: switch the
-model to `whisper-1` and re-run the same audio.
+Spectacle's bindings, kept identical so the muscle memory carries over.
 
-**Discard Saved Audio** clears the folder; **Reveal Saved Audio in Finder** opens it.
+| Shortcut | Action |
+| --- | --- |
+| `⌘⌥←` / `⌘⌥→` | Left / right half |
+| `⌘⌥↑` / `⌘⌥↓` | Top / bottom half |
+| `⌘⌥F` | Maximize |
+| `⌘⌥C` | Centre, keeping the current size |
+| `⌘⌥Z` | Restore to where the window was before Hulpje first moved it |
 
-## Choosing a model
+Windows are moved through the Accessibility API on whichever display holds most of the
+window, respecting the dock and the menu bar. A window in native full screen is asked to
+leave first.
 
-| Model | When |
-|---|---|
-| `gpt-transcribe` | Default. OpenAI's recommended model since July 2026: lowest word error rate, $0.0045/min. |
-| `gpt-4o-transcribe` | The previous default. Has a [documented tendency](https://community.openai.com/t/gpt-4o-transcribe-truncates-the-transcript/1148347) to cut the transcript short after a pause in speech. |
-| `whisper-1` | Weaker on proper nouns, but the most resilient against dropped sentences. Use it to re-run a recording that came back too short. |
+**Conflicts.** macOS gives a global shortcut to one app. While Spectacle is still
+running it holds these, and Hulpje's registration fails silently — so the menu marks
+the ones that are taken and offers **Claim Shortcuts Again** once you quit Spectacle.
+No restart needed.
 
-Every request is sent with `temperature=0` and, for the gpt-4o-class models, a verbatim
-instruction prompt that counters the "condense several sentences into one" behaviour.
-`whisper-1` gets no prompt, because it treats `prompt` as preceding transcript text to
-continue from, not as an instruction.
+## Menu Bar
 
-## Project layout
+Two extra status items appear: a thin divider and a chevron. Collapsing sets the
+divider's width to something absurd, which pushes every status item left of it out of
+the visible strip; expanding shrinks it back. No private API, the same trick Dozer and
+Hidden Bar use.
+
+**Arrange once.** ⌘-drag the icons you want hidden to the *left* of the divider, and the
+ones that should always stay visible to its right. macOS remembers the positions.
+
+Apple's own items (Control Center, Wi-Fi, battery, clock) sit in a region third-party
+apps cannot reach and are never hidden. That is the difference with Ice, which uses
+private CoreGraphics APIs to go further.
+
+**Hide Automatically** collapses after a few seconds and reveals again when the pointer
+reaches the menu bar. Off means the chevron does it on click.
+
+## Adding a feature
+
+Everything under `Sources/Hulpje/` that is not `Core/` is one feature. Conform to
+`Feature`, which is four methods — claim your hotkeys in `start()`, release them in
+`stop()`, add your items in `addMenuItems(to:)` — and append it to
+`AppDelegate.features`. The enabled toggle, the UserDefaults key and the menu placement
+come for free.
 
 ```
-Sources/WhisperMic/
-  WhisperMicApp.swift       # AppDelegate, menu bar, settings
-  AudioRecorder.swift       # AVAudioRecorder wrapper
-  RecordingStore.swift      # Keeps audio on disk until it's transcribed
-  TranscriptionService.swift# OpenAI API call, model selection
-  KeychainHelper.swift      # Reads OPENAI_API_KEY from Keychain
-  HotkeyManager.swift       # Global Carbon hotkey
-  PasteHelper.swift         # Clipboard + simulated ⌘V via CGEvent
-  ToastOverlay.swift        # Floating status pill
-  LaunchAtLoginHelper.swift # SMAppService wrapper
-  Info.plist                # Bundle metadata, mic usage string
-scripts/generate-icon.swift # App icon generator
-build.sh / install.sh       # Build + install to /Applications
+Sources/Hulpje/
+  HulpjeApp.swift        status item, menu assembly
+  Core/                  Feature protocol, hotkeys, Accessibility, Keychain, toast
+  Dictation/             recording, transcription, paste
+  Windows/               Accessibility-based tiling
+  MenuBar/               status item collapsing
 ```
-
-## License
-
-MIT — see [LICENSE](LICENSE).

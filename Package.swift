@@ -2,21 +2,21 @@
 import PackageDescription
 
 let package = Package(
-    name: "WhisperMic",
+    name: "Hulpje",
     platforms: [
         .macOS(.v14)
     ],
     targets: [
         .executableTarget(
-            name: "WhisperMic",
-            path: "Sources/WhisperMic",
+            name: "Hulpje",
+            path: "Sources/Hulpje",
             exclude: ["Info.plist"],
             linkerSettings: [
                 .unsafeFlags([
                     "-Xlinker", "-sectcreate",
                     "-Xlinker", "__TEXT",
                     "-Xlinker", "__info_plist",
-                    "-Xlinker", "Sources/WhisperMic/Info.plist",
+                    "-Xlinker", "Sources/Hulpje/Info.plist",
                 ]),
                 .linkedFramework("ServiceManagement"),
             ]

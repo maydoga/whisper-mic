@@ -3,15 +3,15 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>WhisperMic</string>
+    <string>Hulpje</string>
     <key>CFBundleIdentifier</key>
-    <string>com.maydoga.whispermicapp</string>
+    <string>com.maydoga.hulpje</string>
     <key>CFBundleVersion</key>
-    <string>1.0</string>
+    <string>2.0</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
+    <string>2.0</string>
     <key>CFBundleExecutable</key>
-    <string>WhisperMic</string>
+    <string>Hulpje</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleIconFile</key>
@@ -19,8 +19,8 @@
     <key>LSUIElement</key>
     <true/>
     <key>NSMicrophoneUsageDescription</key>
-    <string>WhisperMic needs microphone access to record audio for transcription.</string>
+    <string>Hulpje needs microphone access to record audio for transcription.</string>
     <key>LSMinimumSystemVersion</key>
-    <string>13.0</string>
+    <string>14.0</string>
 </dict>
 </plist>

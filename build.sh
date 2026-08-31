@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
-APP_NAME="WhisperMic"
+APP_NAME="Hulpje"
 BUILD_DIR="$SCRIPT_DIR/build"
 APP_BUNDLE="$BUILD_DIR/$APP_NAME.app"
 CONTENTS="$APP_BUNDLE/Contents"
@@ -30,7 +30,7 @@ mkdir -p "$MACOS" "$RESOURCES"
 cp "$BINARY" "$MACOS/$APP_NAME"
 
 # Copy Info.plist
-cp "$SCRIPT_DIR/Sources/WhisperMic/Info.plist" "$CONTENTS/Info.plist"
+cp "$SCRIPT_DIR/Sources/Hulpje/Info.plist" "$CONTENTS/Info.plist"
 
 # Generate app icon
 echo "==> Generating app icon..."

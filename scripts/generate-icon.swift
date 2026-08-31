@@ -1,68 +1,51 @@
 #!/usr/bin/env swift
-// Generates AppIcon.icns for WhisperMic
+// Generates AppIcon.icns for Hulpje
 // Usage: swift generate-icon.swift /path/to/output/AppIcon.icns
 
 import Cocoa
 import Foundation
 
+/// A raised hand on an indigo field. Legible down to 16pt, which rules out anything
+/// with thin strokes or interior detail.
 func generateIcon(size: Int) -> NSImage {
     let img = NSImage(size: NSSize(width: size, height: size))
     img.lockFocus()
 
     let s = CGFloat(size)
     let rect = NSRect(x: 0, y: 0, width: s, height: s)
-    let radius = s * 0.2
 
-    // Blue gradient background
-    let path = NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius)
-    let gradient = NSGradient(starting: NSColor(red: 0.17, green: 0.37, blue: 0.54, alpha: 1.0),
-                              ending: NSColor(red: 0.29, green: 0.56, blue: 0.85, alpha: 1.0))!
+    let path = NSBezierPath(roundedRect: rect, xRadius: s * 0.22, yRadius: s * 0.22)
+    let gradient = NSGradient(starting: NSColor(red: 0.24, green: 0.20, blue: 0.52, alpha: 1.0),
+                              ending: NSColor(red: 0.48, green: 0.36, blue: 0.86, alpha: 1.0))!
     gradient.draw(in: path, angle: 90)
 
-    // White mic icon
-    NSColor.white.setFill()
-    NSColor.white.setStroke()
-
-    let cx = s / 2
-    let lineWidth = max(1.0, s * 0.05)
-
-    // Mic body (rounded rect)
-    let micW = s * 0.22
-    let micH = s * 0.35
-    let micX = cx - micW / 2
-    let micY = s * 0.40
-    let micPath = NSBezierPath(roundedRect: NSRect(x: micX, y: micY, width: micW, height: micH),
-                                xRadius: micW / 2, yRadius: micW / 2)
-    micPath.fill()
-
-    // Arc below mic
-    let arcPath = NSBezierPath()
-    arcPath.lineWidth = lineWidth
-    let arcR = s * 0.18
-    let arcCY = s * 0.42
-    arcPath.appendArc(withCenter: NSPoint(x: cx, y: arcCY),
-                      radius: arcR,
-                      startAngle: 0, endAngle: 180)
-    arcPath.stroke()
-
-    // Stand line
-    let standPath = NSBezierPath()
-    standPath.lineWidth = lineWidth
-    standPath.move(to: NSPoint(x: cx, y: arcCY - arcR))
-    standPath.line(to: NSPoint(x: cx, y: s * 0.15))
-    standPath.stroke()
-
-    // Base line
-    let basePath = NSBezierPath()
-    basePath.lineWidth = lineWidth
-    basePath.lineCapStyle = .round
-    let bw = s * 0.12
-    basePath.move(to: NSPoint(x: cx - bw, y: s * 0.15))
-    basePath.line(to: NSPoint(x: cx + bw, y: s * 0.15))
-    basePath.stroke()
+    if let glyph = symbolImage(named: "hand.raised.fill", pointSize: s * 0.52) {
+        let box = NSRect(
+            x: (s - glyph.size.width) / 2,
+            y: (s - glyph.size.height) / 2,
+            width: glyph.size.width,
+            height: glyph.size.height
+        )
+        glyph.draw(in: box)
+    }
 
     img.unlockFocus()
     return img
+}
+
+/// SF Symbols ship as templates; drawing the shape and filling `.sourceAtop` paints it.
+func symbolImage(named name: String, pointSize: CGFloat) -> NSImage? {
+    let config = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .medium)
+    guard let symbol = NSImage(systemSymbolName: name, accessibilityDescription: nil)?
+        .withSymbolConfiguration(config) else { return nil }
+
+    let out = NSImage(size: symbol.size)
+    out.lockFocus()
+    symbol.draw(in: NSRect(origin: .zero, size: symbol.size))
+    NSColor.white.set()
+    NSRect(origin: .zero, size: symbol.size).fill(using: .sourceAtop)
+    out.unlockFocus()
+    return out
 }
 
 func savePNG(_ image: NSImage, to path: String) {
@@ -82,7 +65,7 @@ if CommandLine.arguments.count > 1 {
     outputPath = "AppIcon.icns"
 }
 
-let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("WhisperMicIcon_\(ProcessInfo.processInfo.processIdentifier)")
+let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("HulpjeIcon_\(ProcessInfo.processInfo.processIdentifier)")
 let iconsetDir = tempDir.appendingPathComponent("AppIcon.iconset")
 
 try? FileManager.default.createDirectory(at: iconsetDir, withIntermediateDirectories: true)

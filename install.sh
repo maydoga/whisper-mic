@@ -2,10 +2,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-APP_NAME="WhisperMic"
+APP_NAME="Hulpje"
 APP_BUNDLE="$SCRIPT_DIR/build/$APP_NAME.app"
 INSTALL_DIR="/Applications"
-BUNDLE_ID="com.maydoga.whispermicapp"
+BUNDLE_ID="com.maydoga.hulpje"
 
 # Kill running instance
 pkill -f "$APP_NAME" 2>/dev/null && sleep 1 || true
@@ -37,5 +37,5 @@ echo "Done! $APP_NAME is running in your menu bar."
 echo ""
 echo "IMPORTANT: the Accessibility grant does not survive a rebuild. If the menu bar icon"
 echo "shows a crossed-out mic, open System Settings > Privacy & Security > Accessibility,"
-echo "remove WhisperMic with the - button and add it back with + from /Applications."
+echo "remove Hulpje with the - button and add it back with + from /Applications."
 echo "Shortcut: ⌃+⌥+⌘+Space"
