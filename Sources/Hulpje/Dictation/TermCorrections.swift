@@ -64,6 +64,16 @@ enum TermCorrections {
             if let na = rule.nietGevolgdDoor {
                 pattern += "(?!\\s+" + NSRegularExpression.escapedPattern(for: na) + ")"
             }
+            // Stay idempotent. A rule that EXPANDS ("Beeckestijn" to "Beeckestijn Business
+            // School") would append the tail again on a second pass over the same text.
+            // If the right answer already follows the match, skip it.
+            if rule.goed.lowercased().hasPrefix(rule.fout.lowercased()),
+               rule.goed.count > rule.fout.count {
+                let rest = String(rule.goed.dropFirst(rule.fout.count))
+                if !rest.trimmingCharacters(in: .whitespaces).isEmpty {
+                    pattern += "(?!" + NSRegularExpression.escapedPattern(for: rest) + ")"
+                }
+            }
             let options: NSRegularExpression.Options =
                 (rule.negeerHoofdletters ?? false) ? [.caseInsensitive] : []
             guard let regex = try? NSRegularExpression(pattern: pattern, options: options) else {
