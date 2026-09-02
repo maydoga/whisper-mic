@@ -247,9 +247,7 @@ final class DictationFeature: NSObject, Feature {
                     }
                     RecordingStore.markTranscribed(recording)
                     RecordingStore.prune()
-                    // Known mishearings repaired before it reaches the clipboard:
-                    // "Framework" is FRMWRK, "Klavio" is Klaviyo. See TermCorrections.
-                    deliver(TermCorrections.apply(transcript))
+                    deliver(transcript)
                     refresh()
                 }
             } catch {

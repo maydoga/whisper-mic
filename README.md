@@ -50,26 +50,11 @@ you're in: a crossed-out mic means no access.
 1. The hotkey toggles recording (`AudioRecorder` → 16kHz mono WAV in `~/Library/Application Support/Hulpje/Recordings`)
 2. Recording keeps running 0.4s past the hotkey, so the last syllable isn't clipped
 3. The WAV is POSTed to OpenAI's `/v1/audio/transcriptions` endpoint
-4. Known mishearings are repaired (see **Term corrections** below)
-5. The returned text is copied to the clipboard
-6. Hulpje re-activates the previously frontmost app and simulates `⌘V`
+4. The returned text is copied to the clipboard
+5. Hulpje re-activates the previously frontmost app and simulates `⌘V`
 
 The API key is read from the Keychain at launch. It never lives in the binary, on disk
 as plaintext, or in this repo.
-
-**Term corrections.** A speech model cannot guess a brand it has never been told about,
-so "FRMWRK" comes back as "Framework" every single time. `TermCorrections.swift` repairs
-the known ones before the text reaches the clipboard.
-
-The list is shared with the second brain's transcription pipeline, so a term corrected in
-one place is corrected in both. It is read at runtime from
-`~/repos/second-brain/gereedschap/transcriptie-termen.json` and re-read whenever that file
-changes, so editing it takes effect without rebuilding. If the file is not there, Hulpje
-pastes whatever came back: a missing list must never hold up a transcript.
-
-Whole words only. `framework` is replaced, `frameworks` and `frameworkje` are not, because
-the plural is the ordinary noun and the singular is almost always the company. Same reason
-the list carries `de pimp` but not a bare `Pim`, which is a first name.
 
 **Retrying.** The audio file is only marked done once a transcript actually comes back.
 No internet, an API error, an empty result: the WAV stays on disk and the menu offers
