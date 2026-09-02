@@ -22,10 +22,14 @@ enum TermCorrections {
         let fout: String
         let goed: String
         let negeerHoofdletters: Bool?
+        /// Exception for a fixed expression: "ideal" is iDEAL, except in "ideal customer
+        /// profile". Without it that rule breaks more than it fixes.
+        let nietGevolgdDoor: String?
 
         enum CodingKeys: String, CodingKey {
             case fout, goed
             case negeerHoofdletters = "negeer_hoofdletters"
+            case nietGevolgdDoor = "niet_gevolgd_door"
         }
     }
 
@@ -56,7 +60,10 @@ enum TermCorrections {
         }
 
         cache = list.regels.compactMap { rule in
-            let pattern = "\\b" + NSRegularExpression.escapedPattern(for: rule.fout) + "\\b"
+            var pattern = "\\b" + NSRegularExpression.escapedPattern(for: rule.fout) + "\\b"
+            if let na = rule.nietGevolgdDoor {
+                pattern += "(?!\\s+" + NSRegularExpression.escapedPattern(for: na) + ")"
+            }
             let options: NSRegularExpression.Options =
                 (rule.negeerHoofdletters ?? false) ? [.caseInsensitive] : []
             guard let regex = try? NSRegularExpression(pattern: pattern, options: options) else {
