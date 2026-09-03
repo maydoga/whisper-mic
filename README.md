@@ -75,7 +75,8 @@ Spectacle's bindings, kept identical so the muscle memory carries over.
 
 Windows are moved through the Accessibility API on whichever display holds most of the
 window, respecting the dock and the menu bar. A window in native full screen is asked to
-leave first.
+leave first, and Hulpje waits out the exit animation before placing it. `⌘⌥Z` then goes
+back to where the window sat before it went full screen, not to the full-screen frame.
 
 **Conflicts.** macOS gives a global shortcut to one app. While Spectacle is still
 running it holds these, and Hulpje's registration fails silently — so the menu marks

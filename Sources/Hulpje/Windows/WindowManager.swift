@@ -37,17 +37,37 @@ enum WindowManager {
             return false
         }
         guard let window = focusedWindow() else { return false }
-        guard let current = frame(of: window) else { return false }
 
         if slot == .restore {
             guard let original = rememberedFrame(for: window) else { return false }
             forget(window)
-            return setFrame(original, on: window)
+            guard isNativeFullScreen(window) else { return setFrame(original, on: window) }
+            leaveNativeFullScreen(window)
+            afterFullScreenExit(of: window) { setFrame(original, on: window) }
+            return true
         }
 
-        remember(window, frame: current)
-        leaveNativeFullScreen(window)
+        // A window in native full screen covers the whole display and ignores every
+        // position and size we set. Its frame is also worthless as a restore point.
+        // So: ask it to leave, wait for the animation, and only then read the frame
+        // and place the window.
+        if isNativeFullScreen(window) {
+            leaveNativeFullScreen(window)
+            afterFullScreenExit(of: window) {
+                guard let current = frame(of: window) else { return }
+                remember(window, frame: current)
+                place(window, in: slot, from: current)
+            }
+            return true
+        }
 
+        guard let current = frame(of: window) else { return false }
+        remember(window, frame: current)
+        return place(window, in: slot, from: current)
+    }
+
+    @discardableResult
+    private static func place(_ window: AXUIElement, in slot: WindowSlot, from current: CGRect) -> Bool {
         let cocoaCurrent = flip(current)
         let area = screen(containing: cocoaCurrent).visibleFrame
         let target = frame(for: slot, in: area, current: cocoaCurrent)
@@ -162,14 +182,39 @@ enum WindowManager {
         return result == .success
     }
 
+    private static func isNativeFullScreen(_ window: AXUIElement) -> Bool {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(window, "AXFullScreen" as CFString, &value) == .success
+        else { return false }
+        return (value as? Bool) == true
+    }
+
     /// A window in native full screen ignores position and size. Ask it to leave
     /// first; apps that do not support the attribute simply refuse.
     private static func leaveNativeFullScreen(_ window: AXUIElement) {
-        var value: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(window, "AXFullScreen" as CFString, &value) == .success,
-              (value as? Bool) == true
-        else { return }
+        guard isNativeFullScreen(window) else { return }
         AXUIElementSetAttributeValue(window, "AXFullScreen" as CFString, kCFBooleanFalse)
+    }
+
+    /// Leaving full screen is animated and takes the better part of a second. The
+    /// attribute flips immediately, the window keeps moving after, so we poll until
+    /// it reports out and then let the animation settle. Bounded: an app that never
+    /// leaves gets one last attempt rather than an endless timer.
+    private static func afterFullScreenExit(
+        of window: AXUIElement,
+        attempt: Int = 0,
+        then body: @escaping () -> Void
+    ) {
+        let maxAttempts = 30      // 30 x 0.05s = 1.5s
+        let settle: TimeInterval = 0.12
+
+        guard isNativeFullScreen(window), attempt < maxAttempts else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + settle) { body() }
+            return
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            afterFullScreenExit(of: window, attempt: attempt + 1, then: body)
+        }
     }
 
     // MARK: - Restore bookkeeping

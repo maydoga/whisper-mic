@@ -96,12 +96,16 @@ final class ToastOverlay {
             backing: .buffered,
             defer: false
         )
-        p.level = .floating
+        // .statusBar sits above an app's own full-screen content; .floating does not.
+        p.level = .statusBar
         p.isOpaque = false
         p.backgroundColor = .clear
         p.hasShadow = true
         p.isMovableByWindowBackground = false
-        p.collectionBehavior = [.canJoinAllSpaces]
+        // .canJoinAllSpaces covers ordinary spaces only. A full-screen app gets a
+        // space of its own, and a panel is admitted there by .fullScreenAuxiliary —
+        // without it the pill is simply invisible for the whole recording.
+        p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         p.hidesOnDeactivate = false
         p.titleVisibility = .hidden
         p.titlebarAppearsTransparent = true

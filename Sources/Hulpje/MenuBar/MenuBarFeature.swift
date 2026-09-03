@@ -25,6 +25,11 @@ final class MenuBarFeature: NSObject, Feature {
 
     private var isCollapsed = false
 
+    /// Set when the chevron is clicked shut. A click leaves the pointer sitting in the
+    /// menu bar, and without this the very next mouse move reads that as hover and
+    /// undoes the collapse on the spot. Cleared once the pointer leaves the strip.
+    private var ignoreHoverUntilExit = false
+
     /// Off until asked for: running this next to Ice means two apps fighting over the
     /// same strip of menu bar.
     var isEnabled: Bool {
@@ -190,9 +195,11 @@ final class MenuBarFeature: NSObject, Feature {
     private func pointerMoved() {
         guard isEnabled, autoHide else { return }
         if isPointerInMenuBar() {
+            guard !ignoreHoverUntilExit else { return }
             setCollapsed(false)
-        } else if !isCollapsed {
-            scheduleCollapse()
+        } else {
+            ignoreHoverUntilExit = false
+            if !isCollapsed { scheduleCollapse() }
         }
     }
 
@@ -208,10 +215,13 @@ final class MenuBarFeature: NSObject, Feature {
     // MARK: - Actions
 
     @objc private func toggleCollapsed() {
-        setCollapsed(!isCollapsed)
+        let sluiten = !isCollapsed
+        setCollapsed(sluiten)
+        ignoreHoverUntilExit = sluiten
     }
 
     @objc private func expand() {
+        ignoreHoverUntilExit = false
         setCollapsed(false)
     }
 
