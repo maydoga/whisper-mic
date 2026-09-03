@@ -38,12 +38,17 @@ prompts, or open:
 
 **System Settings → Privacy & Security → Accessibility → add Hulpje**
 
-The grant does not survive a rebuild. Hulpje is ad-hoc signed, and macOS ties the
-Accessibility approval to the binary's cdhash, which changes every time you run
-`install.sh`. The checkbox keeps looking enabled while the app is in fact denied, and
-toggling it off and on does not help. Remove Hulpje from the list with the `-` button
-and add it back with `+` from `/Applications`. The menu bar icon tells you which state
-you're in: a crossed-out mic means no access.
+The grant does not survive a rebuild, and `install.sh` handles that for you. Hulpje is
+ad-hoc signed, so macOS ties the approval to the binary's cdhash, which changes on every
+build. What TCC stores is not "Hulpje is allowed" but a code signing requirement naming
+that one hash, so after a rebuild the row still reads as allowed while matching nothing
+that exists. The app is denied and the checkbox looks ticked. Toggling it does nothing,
+because the checkbox and the requirement are two different things.
+
+`install.sh` drops the stale row with `tccutil reset Accessibility com.maydoga.hulpje`
+before it launches the app, so you get one fresh prompt per install instead of a dead
+checkbox. To repair it by hand, run that same command and reopen Hulpje. The menu bar
+icon tells you which state you're in: a crossed-out mic means no access.
 
 ## Dictation
 
