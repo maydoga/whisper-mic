@@ -56,6 +56,10 @@ enum TranscriptionModel: String, CaseIterable {
     /// whisper-1 treats `prompt` as preceding transcript text to continue from,
     /// not as an instruction, so an instruction there only biases the output.
     var acceptsInstructionPrompt: Bool { self != .whisper1 }
+
+    /// Only gpt-transcribe takes `keywords[]`. It sits alongside `prompt`: the prompt is
+    /// unstructured context, keywords are the literal terms expected in the audio.
+    var acceptsKeywords: Bool { self == .gptTranscribe }
 }
 
 struct TranscriptionResponse: Decodable {
@@ -114,6 +118,14 @@ enum TranscriptionService {
         }
         if model.acceptsInstructionPrompt {
             appendField("prompt", verbatimPrompt)
+        }
+        if model.acceptsKeywords {
+            // One part per term, the same way languages[] is sent above. A hint before
+            // the model listens, so a brand comes back spelled right instead of being
+            // rewritten afterwards.
+            for term in TranscriptionKeywords.all() {
+                appendField("keywords[]", term)
+            }
         }
         appendField("temperature", "0")
 
