@@ -6,9 +6,14 @@ APP_NAME="Hulpje"
 APP_BUNDLE="$SCRIPT_DIR/build/$APP_NAME.app"
 INSTALL_DIR="/Applications"
 BUNDLE_ID="com.maydoga.hulpje"
+AGENT_LABEL="com.mo.hulpje"
+AGENT_PLIST="$HOME/Library/LaunchAgents/$AGENT_LABEL.plist"
+DOMAIN="gui/$(id -u)"
 
-# Kill running instance
-pkill -f "$APP_NAME" 2>/dev/null && sleep 1 || true
+# Stop the running instance. Unload the agent first, otherwise launchd sees the kill
+# as a crash and restarts the old build halfway through the install.
+launchctl bootout "$DOMAIN/$AGENT_LABEL" 2>/dev/null || true
+pkill -x "$APP_NAME" 2>/dev/null && sleep 1 || true
 
 echo "==> Building $APP_NAME..."
 "$SCRIPT_DIR/build.sh"
@@ -46,8 +51,9 @@ echo "==> Clearing the stale Accessibility grant..."
 tccutil reset Accessibility "$BUNDLE_ID" >/dev/null 2>&1 || true
 
 echo ""
-echo "==> Launching $APP_NAME..."
-open "$INSTALL_DIR/$APP_NAME.app"
+echo "==> Launching $APP_NAME (always on: at login and after a crash)..."
+cp "$SCRIPT_DIR/scripts/$AGENT_LABEL.plist" "$AGENT_PLIST"
+launchctl bootstrap "$DOMAIN" "$AGENT_PLIST"
 
 echo ""
 echo "Done! $APP_NAME is running in your menu bar."

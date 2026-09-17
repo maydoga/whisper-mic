@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Keeps Hulpje running: starts at login and comes back after a crash.
+  Quit Hulpje from its menu and it stays quit until the next login (exit 0 is a
+  deliberate stop). install.sh copies this to ~/Library/LaunchAgents and reloads it.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.mo.hulpje</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Applications/Hulpje.app/Contents/MacOS/Hulpje</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+    <key>LimitLoadToSessionType</key>
+    <string>Aqua</string>
+    <key>ProcessType</key>
+    <string>Interactive</string>
+    <key>StandardOutPath</key>
+    <string>/Users/may/Library/Logs/Hulpje.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/may/Library/Logs/Hulpje.log</string>
+</dict>
+</plist>
