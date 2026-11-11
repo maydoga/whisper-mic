@@ -37,6 +37,7 @@ enum WindowManager {
             return false
         }
         guard let window = focusedWindow() else { return false }
+        NSLog("[Hulpje] window %@ for %@", slot.rawValue, appName(of: window))
 
         if slot == .restore {
             guard let original = rememberedFrame(for: window) else { return false }
@@ -61,7 +62,10 @@ enum WindowManager {
             return true
         }
 
-        guard let current = frame(of: window) else { return false }
+        guard let current = frame(of: window) else {
+            NSLog("[Hulpje] window frame unreadable for %@", appName(of: window))
+            return false
+        }
         remember(window, frame: current)
         return place(window, in: slot, from: current)
     }
@@ -134,14 +138,52 @@ enum WindowManager {
         else { return nil }
 
         let axApp = AXUIElementCreateApplication(app.processIdentifier)
-        var value: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(axApp, kAXFocusedWindowAttribute as CFString, &value) == .success
-        else {
-            NSLog("[Hulpje] no focused window for %@", app.localizedName ?? "?")
-            return nil
+
+        // Focused first, then main, then the front-most of all its windows. Finder
+        // answers "focused window" with its desktop, one window spanning every
+        // display, even while a normal Finder window has the focus. Moving that does
+        // nothing, so anything that is not an ordinary window is passed over.
+        var candidates: [AXUIElement] = []
+        for attribute in [kAXFocusedWindowAttribute, kAXMainWindowAttribute] {
+            var value: CFTypeRef?
+            let result = AXUIElementCopyAttributeValue(axApp, attribute as CFString, &value)
+            if result == .success, let value, CFGetTypeID(value) == AXUIElementGetTypeID() {
+                candidates.append(value as! AXUIElement)
+            }
         }
-        guard CFGetTypeID(value) == AXUIElementGetTypeID() else { return nil }
-        return (value as! AXUIElement)
+        var windows: CFTypeRef?
+        if AXUIElementCopyAttributeValue(axApp, kAXWindowsAttribute as CFString, &windows) == .success,
+           let list = windows as? [AXUIElement] {
+            candidates.append(contentsOf: list)
+        }
+
+        if let window = candidates.first(where: isOrdinaryWindow) { return window }
+        NSLog("[Hulpje] no focused window for %@ (%d candidates, none ordinary)",
+              app.localizedName ?? "?", candidates.count)
+        return nil
+    }
+
+    /// A window someone would tile: a standard window, or failing a subrole, one that
+    /// fits on a single display. Finder's desktop is neither.
+    private static func isOrdinaryWindow(_ window: AXUIElement) -> Bool {
+        var subrole: CFTypeRef?
+        AXUIElementCopyAttributeValue(window, kAXSubroleAttribute as CFString, &subrole)
+        if (subrole as? String) == (kAXStandardWindowSubrole as String) { return true }
+
+        guard let rect = frame(of: window) else { return false }
+        let cocoa = flip(rect)
+        let fitsOneScreen = NSScreen.screens.contains { $0.frame.insetBy(dx: -2, dy: -2).contains(cocoa) }
+        if !fitsOneScreen || subrole == nil {
+            NSLog("[Hulpje] skipped window %@ subrole %@", NSStringFromRect(rect), (subrole as? String) ?? "none")
+            return false
+        }
+        return true
+    }
+
+    private static func appName(of window: AXUIElement) -> String {
+        var pid: pid_t = 0
+        AXUIElementGetPid(window, &pid)
+        return NSRunningApplication(processIdentifier: pid)?.bundleIdentifier ?? "pid \(pid)"
     }
 
     private static func frame(of window: AXUIElement) -> CGRect? {
@@ -163,6 +205,12 @@ enum WindowManager {
 
     /// Position, then size, then position again: apps that clamp the size while the
     /// window still sits on the old screen end up in the wrong place otherwise.
+    ///
+    /// An app with `AXEnhancedUserInterface` switched on (set by assistive tools that
+    /// watch other apps) animates every change and drops the ones that arrive while
+    /// it is still moving, so it is switched off for the move and restored after.
+    /// The frame is read back: an app that answers "success" and then ignores the
+    /// size gets one more attempt, size first, and the outcome lands in the log.
     @discardableResult
     private static func setFrame(_ rect: CGRect, on window: AXUIElement) -> Bool {
         var origin = rect.origin
@@ -172,14 +220,49 @@ enum WindowManager {
               let sizeValue = AXValueCreate(.cgSize, &size)
         else { return false }
 
-        AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, positionValue)
+        var pid: pid_t = 0
+        AXUIElementGetPid(window, &pid)
+        let axApp = AXUIElementCreateApplication(pid)
+        let enhanced = enhancedUserInterface(of: axApp)
+        if enhanced { setEnhancedUserInterface(false, on: axApp) }
+        defer { if enhanced { setEnhancedUserInterface(true, on: axApp) } }
+
+        let before = frame(of: window)
+        let positioned = AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, positionValue)
         let result = AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, sizeValue)
         AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, positionValue)
 
+        var after = frame(of: window)
+        if let landed = after, !landed.isClose(to: rect) {
+            AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, sizeValue)
+            AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, positionValue)
+            AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, sizeValue)
+            after = frame(of: window)
+        }
+
+        NSLog(
+            "[Hulpje] window %@ from %@ to %@ landed %@ (position %d, size %d, enhancedUI %d)",
+            appName(of: window),
+            before.map { NSStringFromRect($0) } ?? "?",
+            NSStringFromRect(rect),
+            after.map { NSStringFromRect($0) } ?? "?",
+            positioned.rawValue, result.rawValue, enhanced ? 1 : 0
+        )
         if result != .success {
             NSLog("[Hulpje] window resize refused, error %d", result.rawValue)
         }
         return result == .success
+    }
+
+    private static func enhancedUserInterface(of app: AXUIElement) -> Bool {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(app, "AXEnhancedUserInterface" as CFString, &value) == .success
+        else { return false }
+        return (value as? Bool) == true
+    }
+
+    private static func setEnhancedUserInterface(_ on: Bool, on app: AXUIElement) {
+        AXUIElementSetAttributeValue(app, "AXEnhancedUserInterface" as CFString, on ? kCFBooleanTrue : kCFBooleanFalse)
     }
 
     private static func isNativeFullScreen(_ window: AXUIElement) -> Bool {
@@ -236,4 +319,10 @@ enum WindowManager {
 
 private extension CGRect {
     var area: CGFloat { isNull ? 0 : width * height }
+
+    /// Within a couple of points: apps round to their own grid.
+    func isClose(to other: CGRect, tolerance: CGFloat = 2) -> Bool {
+        abs(minX - other.minX) <= tolerance && abs(minY - other.minY) <= tolerance
+            && abs(width - other.width) <= tolerance && abs(height - other.height) <= tolerance
+    }
 }
