@@ -8,6 +8,7 @@ a dictation tool; it is now a place to keep adding things.
 | **Dictation** | Hold a hotkey, speak, get the transcript pasted at the cursor | `⌃⌥⌘Space` |
 | **Windows** | Tile the focused window, a drop-in for the retired Spectacle | `⌘⌥←` `⌘⌥→` `⌘⌥↑` `⌘⌥↓` `⌘⌥F` `⌘⌥C` `⌘⌥Z` |
 | **Menu Bar** | Collapse the third-party menu bar icons, like Ice or Dozer | click the chevron |
+| **Keep Awake** | Neither the Mac nor the display sleeps while it is on, like Amphetamine without the timers | menu toggle |
 
 Every feature can be switched off from the menu, so it can live alongside the app it
 replaces while you decide.

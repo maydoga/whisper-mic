@@ -1,7 +1,7 @@
 import Cocoa
 
 /// Hulpje is a menu bar app that collects the small macOS conveniences worth having:
-/// dictation, window tiling, a tidier menu bar. Each of those is a `Feature`; this
+/// dictation, window tiling, a tidier menu bar, a Mac that stays awake. Each of those is a `Feature`; this
 /// delegate owns the status item and hands the menu around.
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
@@ -10,9 +10,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private lazy var dictation = DictationFeature(refresh: { [weak self] in self?.buildMenu() })
     private lazy var windows = WindowFeature()
     private lazy var menuBar = MenuBarFeature()
+    private lazy var keepAwake = KeepAwakeFeature()
 
     /// Order here is the order in the menu.
-    private lazy var features: [Feature] = [dictation, windows, menuBar]
+    private lazy var features: [Feature] = [dictation, windows, menuBar, keepAwake]
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Fires the system Accessibility prompt on first launch; no-op afterwards.
